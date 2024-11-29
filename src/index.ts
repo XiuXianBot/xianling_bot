@@ -654,69 +654,20 @@ async function shrink_the_numbers(num) {
 async function retreat_spiritual_power(ctx: Context, userId: string) {
   // 闭关获得灵力
   const player_data = await ctx.database.get("xianling_user", { userId });
-  const duration_of_retreat =
-    Math.floor(Date.now() / 1000) - player_data[0]["Time"]; // 闭关时间
-  if (player_data[0]["shut_in_bonus"] == 0) {
-    console.log("判断1修炼")
-    // 判断有没有归凡过
-    const spiritual_power =
-      duration_of_retreat * realm_spiritual_power[player_data[0]["realm"]];
-    // 公式: 闭关时间 * 当前境界每秒获得灵力
-    await ctx.database.set(
-      "xianling_user",
-      { userId },
-      { status: 0, Psychic_power: player_data[0]['Psychic_power'] + spiritual_power }
-    );
-    return (spiritual_power);
-  } else if (player_data[0]["XL_bonus"]["shut_in_bonus"] == 0) {
-    console.log("判断2修炼")
-    // 判断是否有仙灵
-    const spiritual_power =
-      duration_of_retreat *
-      player_data[0]["shut_in_bonus"] *
-      realm_spiritual_power[player_data[0]["realm"]];
-    // 公式: 闭关时间 * 归凡加成灵力 * 当前境界每秒获得灵力
-    await ctx.database.set(
-      "xianling_user",
-      { userId },
-      { status: 0, Psychic_power: player_data[0]['Psychic_power'] + spiritual_power }
-    );
-    return (spiritual_power);
-  } else {
-    console.log("判断3修炼")
-    // 判断是否有仙灵
-    const spiritual_power =
-      duration_of_retreat *
-      player_data[0]["shut_in_bonus"] *
-      player_data[0]["XL_bonus"]["shut_in_bonus"] *
-      realm_spiritual_power[player_data[0]["realm"]];
-    // 公式: 闭关时间 * 归凡加成灵力 * 当前境界每秒获得灵力 * 仙灵加成
-    await ctx.database.set(
-      "xianling_user",
-      { userId },
-      { status: 0, Psychic_power: player_data[0]['Psychic_power'] + spiritual_power }
-    );
-    return (spiritual_power);
+  const duration_of_retreat = Math.floor(Date.now() / 1000) - player_data[0]["Time"]; // 闭关时间 公式:现在时间-开始闭关时间= 闭关时间
+  let formula = duration_of_retreat * realm_spiritual_power[player_data[0]["realm"]]; // 初始公式: 闭关时间 * 当前境界每秒获得灵力
+  if (player_data[0]['shut_in_bonus'] > 0) {
+    console.log('触发归凡加成')
+    formula *= player_data[0]['shut_in_bonus'];
+    // 初始公式 + 归凡加成
   }
+  if (player_data[0]["XL_bonus"]["shut_in_bonus"] > 0) {
+    console.log('触发仙灵加成');
+    formula *= player_data[0]["XL_bonus"]["shut_in_bonus"];
+    // 初始公式 + 仙灵加成
+  }
+  await ctx.database.set("xianling_user", { userId },
+    { status: 0, Psychic_power: player_data[0]['Psychic_power'] + formula }
+  );
+  return formula
 }
-/**
-
-当前境界每秒获得灵力×闭关加成×闭关时间＝闭关实际获得灵力
-有三个排行榜
-境界排名:
-灵石排名:
-贡献排名:
-
-每个境界的血量和蓝量数值和其境界所需灵力数值相同，攻击为血量的10%。
-
-修炼境界有
-["人境","凡境悟法","凡境凝纹","凡境铸纹","灵境","灵境蕴灵","灵境通灵","灵境妙法","半步地境","地境铸则","地境悟道","地境通天","半步天境","天境归凡一转","天境归凡二转","天境归凡三转","天境归凡四转","天境归凡五转","天境归凡六转","天境归凡七转","天境归凡八转","天境归凡九转","入圣境","圣境（散魄）","圣境（斩魂）","圣境（弑情）","圣境（归一）","神境","神境一阶","神境二阶","神境三阶","神境四阶","神境五阶","神境六阶","神境七阶","神境八阶","神境九阶","无上"]
-这些，玩家可以通过闭关提高灵力，当灵力达到突破条件时，玩家可以选择突破，突破概率设定为10%，其中每个境界突破需要的灵力为
-[0,2500,5000,10000.50000, 100000,500000,1000000,5000000,10000000,50000000,
-1.3e8,1.5e8,2.5e8,3.5e8, 3.5e8, 4.5e8, 5.5e8, 6.5e8, 7.5e8,8.5e8, 9.5e8,
-1e9,5e9,1e10,5e10,1e11,2e11, 3e11, 4e11, 5e11, 6e11,7e11, 8e11, 9e11, 1e12,1e13];
-玩家每闭关1分钟，可以获得相当于其总灵力5%的灵力。
-特殊要求:当玩家到达天境准备再次突破时，他可以选择是否归凡，如果选择是，他的灵力和境界被清零，但是他每闭关60分钟获得的灵力增加15%，突破概率加1%。
-天境归凡每个境界都有一次（不包括天境）。如果选择否，则之后的突破中不会再提示他是否归凡，并且他也享受不到以上加成。
-当玩家选择突破时，如果突破成功则提升境界，失败会扣除他当前10%到20%的灵力，但是会提升他下次突破1%的概率。
-*/

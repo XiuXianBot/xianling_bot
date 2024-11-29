@@ -121,9 +121,12 @@ export async function apply(ctx: Context) {
     .action(async ({ session }) => {
       const { userId } = session;
       const data = await ctx.database.get("xianling_user", { userId });
+      const wilderness_data = await ctx.database.get("xianling_wilderness", { userId });
       const time = Math.floor(Date.now() / 1000) - data?.[0]?.["Time"]; // 闭关时间
       if (data?.length == 0) {
         return `══道场出关══\n【小友】\n你还未踏入这片世界\nTips：发送“踏入世界 昵称 性别”`;
+      } else if (wilderness_data[0]['quantity'] == 0) {
+        return "你有没有道场";
       } else if (data?.[0]?.status == 1) {
         const gain_spiritual_power = await retreat_spiritual_power(ctx, userId);
         return `══道场出关══\n【${data[0]["name"]
@@ -210,57 +213,28 @@ export async function apply(ctx: Context) {
     })
 }
 
+
 async function retreat_spiritual_power(ctx: Context, userId: string) {
   // 闭关获得灵力
   const player_data = await ctx.database.get("xianling_user", { userId });
   const wilderness_data = await ctx.database.get("xianling_wilderness", { userId });
-  const duration_of_retreat =
-    Math.floor(Date.now() / 1000) - player_data[0]["Time"]; // 闭关时间
-  if (player_data[0]["shut_in_bonus"] == 0) {
-    console.log("道场判断1修炼")
-    // 判断有没有归凡过
-    const spiritual_power =
-      duration_of_retreat * realm_spiritual_power[player_data[0]["realm"]];
-    // 公式: 闭关时间 * 当前境界每秒获得灵力
-    const superimposing = (wilderness_data[0]['grade'] + 1) * spiritual_power
-    await ctx.database.set(
-      "xianling_user",
-      { userId },
-      { status: 0, Psychic_power: player_data[0]['Psychic_power'] + superimposing }
-    );
-    return (superimposing);
-  } else if (player_data[0]["XL_bonus"]["shut_in_bonus"] == 0) {
-    console.log("道场判断2修炼")
-    // 判断是否有仙灵
-    const spiritual_power =
-      duration_of_retreat *
-      player_data[0]["shut_in_bonus"] *
-      realm_spiritual_power[player_data[0]["realm"]];
-    // 公式: 闭关时间 * 归凡加成灵力 * 当前境界每秒获得灵力
-    const superimposing = (wilderness_data[0]['grade'] + 1) * spiritual_power
-    await ctx.database.set(
-      "xianling_user",
-      { userId },
-      { status: 0, Psychic_power: player_data[0]['Psychic_power'] + superimposing }
-    );
-    return (superimposing);
-  } else {
-    console.log("道场判断3修炼")
-    // 判断是否有仙灵
-    const spiritual_power =
-      duration_of_retreat *
-      player_data[0]["shut_in_bonus"] *
-      player_data[0]["XL_bonus"]["shut_in_bonus"] *
-      realm_spiritual_power[player_data[0]["realm"]];
-    // 公式: 闭关时间 * 归凡加成灵力 * 当前境界每秒获得灵力 * 仙灵加成
-    const superimposing = (wilderness_data[0]['grade'] + 1) * spiritual_power
-    await ctx.database.set(
-      "xianling_user",
-      { userId },
-      { status: 0, Psychic_power: player_data[0]['Psychic_power'] + superimposing }
-    );
-    return (superimposing);
+  const duration_of_retreat = Math.floor(Date.now() / 1000) - player_data[0]["Time"]; // 闭关时间 公式:现在时间-开始闭关时间= 闭关时间
+  let formula = duration_of_retreat * realm_spiritual_power[player_data[0]["realm"]]; // 初始公式: 闭关时间 * 当前境界每秒获得灵力
+  if (player_data[0]['shut_in_bonus'] > 0) {
+    console.log('道场闭关触发归凡加成')
+    formula *= player_data[0]['shut_in_bonus'];
+    // 初始公式 + 归凡加成
   }
+  if (player_data[0]["XL_bonus"]["shut_in_bonus"] > 0) {
+    console.log('道场闭关触发仙灵加成');
+    formula *= player_data[0]["XL_bonus"]["shut_in_bonus"];
+    // 初始公式 + 仙灵加成
+  }
+  const superimposing = (wilderness_data[0]['grade'] + 1) * formula
+  await ctx.database.set("xianling_user", { userId },
+    { status: 0, Psychic_power: player_data[0]['Psychic_power'] + superimposing }
+  );
+  return superimposing
 }
 
 export async function 添加物品(ctx: Context, userId: string, 数组: object, 物品: string, 数量: number) {

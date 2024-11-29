@@ -10,4 +10,6 @@ export const Config: Schema<Config> = Schema.object({});
 
 let randoms = new Random(() => Math.random());
 
-export async function apply(ctx: Context) { }
+export async function apply(ctx: Context) { 
+    
+}
